@@ -79,14 +79,32 @@ puck=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,0.1,32),new THREE.MeshS
 player=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0xff0000}));scene.add(player);
 cpu=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0x00ff00}));scene.add(cpu);
 
+// PC操作（マウス）
 renderer.domElement.addEventListener('mousemove',e=>{
-if(!gameActive)return;
-const x=(e.clientX/innerWidth-0.5)*6;
-const z=(e.clientY/innerHeight)*5;
-player.position.set(THREE.MathUtils.clamp(x,-2.7,2.7),0,THREE.MathUtils.clamp(z,0,4.5));
+  if(!gameActive)return;
+  movePlayer(e.clientX,e.clientY);
+});
+
+// スマホ操作（タッチ）
+renderer.domElement.addEventListener('touchmove',e=>{
+  if(!gameActive)return;
+  const t=e.touches[0];
+  movePlayer(t.clientX,t.clientY);
+  e.preventDefault();
+},{passive:false});
 });
 
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+}
+
+function movePlayer(cx,cy){
+  const x=(cx/innerWidth-0.5)*6;
+  const z=(cy/innerHeight)*5;
+  player.position.set(
+    THREE.MathUtils.clamp(x,-2.7,2.7),
+    0,
+    THREE.MathUtils.clamp(z,0,4.5)
+  );
 }
 
 function startAdventure(){stage=1;startStage();}
