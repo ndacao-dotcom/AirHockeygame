@@ -2,44 +2,102 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>3D Air Hockey</title>
+
 <style>
-html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:sans-serif}
-#score{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:20px;color:#fff;z-index:10}
-#stageLabel{position:absolute;top:40px;left:50%;transform:translateX(-50%);font-size:16px;color:#ccc;z-index:10}
-#menu,#settings,#message{position:absolute;top:0;left:0;width:100%;height:100%;display:none;justify-content:center;align-items:center;flex-direction:column;background:rgba(0,0,0,.7);color:#fff;z-index:20}
-button{padding:12px 24px;font-size:16px;margin:8px}
-select{padding:6px;font-size:16px;margin:4px}
+html,body{
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  background:#000;
+  font-family:sans-serif;
+  touch-action:none;
+}
+
+canvas{
+  touch-action:none;
+}
+
+#score{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:20px;
+  color:#fff;
+  z-index:10;
+}
+
+#stageLabel{
+  position:absolute;
+  top:40px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:16px;
+  color:#ccc;
+  z-index:10;
+}
+
+#menu,#settings,#message{
+  position:absolute;
+  inset:0;
+  display:none;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  background:rgba(0,0,0,.7);
+  color:#fff;
+  z-index:20;
+}
+
+button{
+  padding:12px 24px;
+  font-size:16px;
+  margin:8px;
+}
+
+select{
+  padding:6px;
+  font-size:16px;
+  margin:4px;
+}
 </style>
 </head>
+
 <body>
 <div id="score">0 : 0</div>
 <div id="stageLabel">STAGE 1</div>
 
 <div id="menu">
-<h1>3Dエアホッケー</h1>
-<button onclick="startAdventure()">アドベンチャーモード</button>
-<button onclick="alert('未実装')">ともだちと対戦</button>
-<button onclick="openSettings()">環境設定</button>
+  <h1>3Dエアホッケー</h1>
+  <button onclick="startAdventure()">アドベンチャーモード</button>
+  <button onclick="alert('未実装')">ともだちと対戦</button>
+  <button onclick="openSettings()">環境設定</button>
 </div>
 
 <div id="settings">
-<h2>環境設定</h2>
-マレット色
-<select id="malletColor">
-<option value="red">赤</option><option value="blue">青</option><option value="green">緑</option><option value="yellow">黄色</option>
-</select>
-パック色
-<select id="puckColor">
-<option value="white">白</option><option value="black">黒</option>
-</select>
-フィールド色
-<select id="fieldColor">
-<option value="white">白</option><option value="black">黒</option><option value="court">コート</option>
-</select>
-<button onclick="applySettings()">決定</button>
-<button onclick="showMenu()">戻る</button>
+  <h2>環境設定</h2>
+  マレット色
+  <select id="malletColor">
+    <option value="red">赤</option>
+    <option value="blue">青</option>
+    <option value="green">緑</option>
+    <option value="yellow">黄色</option>
+  </select>
+  パック色
+  <select id="puckColor">
+    <option value="white">白</option>
+    <option value="black">黒</option>
+  </select>
+  フィールド色
+  <select id="fieldColor">
+    <option value="white">白</option>
+    <option value="black">黒</option>
+    <option value="court">コート</option>
+  </select>
+  <button onclick="applySettings()">決定</button>
+  <button onclick="showMenu()">戻る</button>
 </div>
 
 <div id="message"></div>
@@ -59,87 +117,203 @@ const menu=document.getElementById('menu');
 const settings=document.getElementById('settings');
 const message=document.getElementById('message');
 
-init();showMenu();animate();
+init();
+showMenu();
+animate();
 
 function init(){
-scene=new THREE.Scene();
-camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
-camera.position.set(0,6,6);camera.lookAt(0,0,0);
-renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth,innerHeight);
-document.body.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
 
-scene.add(new THREE.AmbientLight(0xffffff,0.4));
-const light=new THREE.DirectionalLight(0xffffff,0.8);light.position.set(0,10,5);scene.add(light);
+  camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
+  camera.position.set(0,6,6);
+  camera.lookAt(0,0,0);
 
-field=new THREE.Mesh(new THREE.BoxGeometry(6,0.2,10),new THREE.MeshStandardMaterial({color:0x004488}));
-field.position.y=-0.1;scene.add(field);
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-puck=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,0.1,32),new THREE.MeshStandardMaterial({color:0xffffff}));scene.add(puck);
-player=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0xff0000}));scene.add(player);
-cpu=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0x00ff00}));scene.add(cpu);
+  scene.add(new THREE.AmbientLight(0xffffff,0.4));
+  const d=new THREE.DirectionalLight(0xffffff,0.8);
+  d.position.set(0,10,5);
+  scene.add(d);
 
-renderer.domElement.addEventListener('mousemove',e=>{
-if(!gameActive)return;
-const x=(e.clientX/innerWidth-0.5)*6;
-const z=(e.clientY/innerHeight)*5;
-player.position.set(THREE.MathUtils.clamp(x,-2.7,2.7),0,THREE.MathUtils.clamp(z,0,4.5));
-});
+  field=new THREE.Mesh(
+    new THREE.BoxGeometry(6,0.2,10),
+    new THREE.MeshStandardMaterial({color:0x004488})
+  );
+  field.position.y=-0.1;
+  scene.add(field);
 
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+  puck=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25,0.25,0.1,32),
+    new THREE.MeshStandardMaterial({color:0xffffff})
+  );
+  scene.add(puck);
+
+  player=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4,0.4,0.2,32),
+    new THREE.MeshStandardMaterial({color:0xff0000})
+  );
+  scene.add(player);
+
+  cpu=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4,0.4,0.2,32),
+    new THREE.MeshStandardMaterial({color:0x00ff00})
+  );
+  scene.add(cpu);
+
+  // ★★★ POINTER EVENTS（これが本命）★★★
+  renderer.domElement.addEventListener('pointerdown',e=>{
+    renderer.domElement.setPointerCapture(e.pointerId);
+  });
+
+  renderer.domElement.addEventListener('pointermove',e=>{
+    if(!gameActive)return;
+    movePlayer(e.clientX,e.clientY);
+  });
+
+  renderer.domElement.addEventListener('pointerup',e=>{
+    renderer.domElement.releasePointerCapture(e.pointerId);
+  });
+
+  window.addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
 }
 
-function startAdventure(){stage=1;startStage();}
+function movePlayer(cx,cy){
+  const x=(cx/innerWidth-0.5)*6;
+  const z=(cy/innerHeight)*5;
+  player.position.set(
+    THREE.MathUtils.clamp(x,-2.7,2.7),
+    0,
+    THREE.MathUtils.clamp(z,0,4.5)
+  );
+}
+
+function startAdventure(){
+  stage=1;
+  startStage();
+}
 
 function startStage(){
-hideAll();
-playerScore=0;cpuScore=0;
-updateUI();
-player.position.set(0,0,4);
-cpu.position.set(0,0,-4);
-resetPuck();
-gameActive=true;
+  hideAll();
+  playerScore=0;
+  cpuScore=0;
+  updateUI();
+  player.position.set(0,0,4);
+  cpu.position.set(0,0,-4);
+  resetPuck();
+  gameActive=true;
 }
 
 function resetPuck(){
-puck.position.set(0,0,0);
-puckVel.set(0,0,getPuckSpeed());
+  puck.position.set(0,0,0);
+  const speed=getPuckSpeed();
+  puckVel.set(0,0,speed);
 }
 
-function getPuckSpeed(){return stage<9?0.1+stage*0.01:0.4;}
+function getPuckSpeed(){
+  if(stage<9) return 0.12 + stage*0.01;
+  return 0.45; // 裏ボスだけ異常
+}
 
 function updatePhysics(){
-puck.position.y=0;puckVel.y=0;
-puck.position.add(puckVel);
-if(Math.abs(puck.position.x)>2.7)puckVel.x*=-1;
-if(puck.position.z>5){cpuScore++;afterGoal();}
-if(puck.position.z<-5){playerScore++;afterGoal();}
-const cpuSpeed=0.02+stage*0.004;
-cpu.position.x+=THREE.MathUtils.clamp(puck.position.x-cpu.position.x,-cpuSpeed,cpuSpeed);
-hit(player);hit(cpu);
+  puck.position.y=0;
+  puckVel.y=0;
+  puck.position.add(puckVel);
+
+  if(Math.abs(puck.position.x)>2.7) puckVel.x*=-1;
+
+  if(puck.position.z>5){ cpuScore++; afterGoal(); }
+  if(puck.position.z<-5){ playerScore++; afterGoal(); }
+
+  const cpuSpeed=0.02+stage*0.004;
+  cpu.position.x+=THREE.MathUtils.clamp(
+    puck.position.x-cpu.position.x,
+    -cpuSpeed,
+    cpuSpeed
+  );
+
+  hit(player);
+  hit(cpu);
 }
 
-function hit(m){const d=puck.position.distanceTo(m.position);if(d<0.6){const dir=puck.position.clone().sub(m.position).normalize();puckVel.x=dir.x*getPuckSpeed();puckVel.z=dir.z*getPuckSpeed();}}
+function hit(m){
+  const d=puck.position.distanceTo(m.position);
+  if(d<0.6){
+    const dir=puck.position.clone().sub(m.position).normalize();
+    const s=getPuckSpeed();
+    puckVel.x=dir.x*s;
+    puckVel.z=dir.z*s;
+  }
+}
 
-function afterGoal(){updateUI();if(playerScore>=3){win();return;}if(cpuScore>=3){lose();return;}resetPuck();}
+function afterGoal(){
+  updateUI();
+  if(playerScore>=3){ win(); return; }
+  if(cpuScore>=3){ lose(); return; }
+  resetPuck();
+}
 
-function updateUI(){scoreEl.textContent=`${playerScore} : ${cpuScore}`;stageEl.textContent=`STAGE ${stage}`;}
+function updateUI(){
+  scoreEl.textContent=`${playerScore} : ${cpuScore}`;
+  stageEl.textContent=`STAGE ${stage}`;
+}
 
-function win(){gameActive=false;stage++;if(stage>MAX_STAGE){showMessage('Congratulations！<br>こんなホッケーゲームやるから目が悪くなるんじゃ！','メインメニューへ戻る',()=>{stage=1;showMenu();});}else{showMessage('ステージクリア','次のステージ',startStage);}}
-function lose(){gameActive=false;showMessage('敗北…','メインメニューへ戻る',()=>{stage=1;showMenu();});}
+function win(){
+  gameActive=false;
+  stage++;
+  if(stage>MAX_STAGE){
+    showMessage(
+      'Congratulations！<br>こんなホッケーゲームやるから目が悪くなるんじゃ！',
+      'メインメニューへ戻る',
+      ()=>{ stage=1; showMenu(); }
+    );
+  }else{
+    showMessage('ステージクリア','次のステージ',startStage);
+  }
+}
 
-function showMenu(){hideAll();menu.style.display='flex';}
-function openSettings(){hideAll();settings.style.display='flex';}
-function applySettings(){player.material.color.set(document.getElementById('malletColor').value);
-puck.material.color.set(document.getElementById('puckColor').value);
-const f=document.getElementById('fieldColor').value;
-field.material.color.set(f==='white'?0xffffff:f==='black'?0x000000:0x004488);
-showMenu();}
+function lose(){
+  gameActive=false;
+  showMessage('敗北…','メインメニューへ戻る',()=>{
+    stage=1;
+    showMenu();
+  });
+}
 
-function hideAll(){menu.style.display=settings.style.display=message.style.display='none';}
-function showMessage(t,b,cb){hideAll();message.innerHTML=`<h2>${t}</h2><button>${b}</button>`;message.querySelector('button').onclick=cb;message.style.display='flex';}
+function showMenu(){ hideAll(); menu.style.display='flex'; }
+function openSettings(){ hideAll(); settings.style.display='flex'; }
 
-function animate(){requestAnimationFrame(animate);if(gameActive)updatePhysics();renderer.render(scene,camera)}
+function applySettings(){
+  player.material.color.set(document.getElementById('malletColor').value);
+  puck.material.color.set(document.getElementById('puckColor').value);
+  const f=document.getElementById('fieldColor').value;
+  field.material.color.set(
+    f==='white'?0xffffff:f==='black'?0x000000:0x004488
+  );
+  showMenu();
+}
+
+function hideAll(){
+  menu.style.display=settings.style.display=message.style.display='none';
+}
+
+function showMessage(t,b,cb){
+  hideAll();
+  message.innerHTML=`<h2>${t}</h2><button>${b}</button>`;
+  message.querySelector('button').onclick=cb;
+  message.style.display='flex';
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  if(gameActive) updatePhysics();
+  renderer.render(scene,camera);
+}
 </script>
 </body>
 </html>
