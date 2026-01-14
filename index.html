@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3D Air Hockey</title>
 <style>
 html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:sans-serif}
@@ -79,32 +79,14 @@ puck=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,0.1,32),new THREE.MeshS
 player=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0xff0000}));scene.add(player);
 cpu=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),new THREE.MeshStandardMaterial({color:0x00ff00}));scene.add(cpu);
 
-// PC操作（マウス）
 renderer.domElement.addEventListener('mousemove',e=>{
-  if(!gameActive)return;
-  movePlayer(e.clientX,e.clientY);
-});
-
-// スマホ操作（タッチ）
-renderer.domElement.addEventListener('touchmove',e=>{
-  if(!gameActive)return;
-  const t=e.touches[0];
-  movePlayer(t.clientX,t.clientY);
-  e.preventDefault();
-},{passive:false});
+if(!gameActive)return;
+const x=(e.clientX/innerWidth-0.5)*6;
+const z=(e.clientY/innerHeight)*5;
+player.position.set(THREE.MathUtils.clamp(x,-2.7,2.7),0,THREE.MathUtils.clamp(z,0,4.5));
 });
 
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-}
-
-function movePlayer(cx,cy){
-  const x=(cx/innerWidth-0.5)*6;
-  const z=(cy/innerHeight)*5;
-  player.position.set(
-    THREE.MathUtils.clamp(x,-2.7,2.7),
-    0,
-    THREE.MathUtils.clamp(z,0,4.5)
-  );
 }
 
 function startAdventure(){stage=1;startStage();}
