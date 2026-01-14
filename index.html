@@ -14,10 +14,7 @@ html,body{
   font-family:sans-serif;
   touch-action:none;
 }
-
-canvas{
-  touch-action:none;
-}
+canvas{touch-action:none;}
 
 #score{
   position:absolute;
@@ -28,7 +25,6 @@ canvas{
   color:#fff;
   z-index:10;
 }
-
 #stageLabel{
   position:absolute;
   top:40px;
@@ -38,7 +34,6 @@ canvas{
   color:#ccc;
   z-index:10;
 }
-
 #menu,#settings,#message{
   position:absolute;
   inset:0;
@@ -50,18 +45,8 @@ canvas{
   color:#fff;
   z-index:20;
 }
-
-button{
-  padding:12px 24px;
-  font-size:16px;
-  margin:8px;
-}
-
-select{
-  padding:6px;
-  font-size:16px;
-  margin:4px;
-}
+button{padding:12px 24px;font-size:16px;margin:8px}
+select{padding:6px;font-size:16px;margin:4px}
 </style>
 </head>
 
@@ -111,6 +96,11 @@ let stage=1,MAX_STAGE=9;
 let playerScore=0,cpuScore=0;
 let gameActive=false;
 
+/* === 設定保持用 === */
+let settingMalletColor='red';
+let settingPuckColor='white';
+let settingFieldColor='court';
+
 const scoreEl=document.getElementById('score');
 const stageEl=document.getElementById('stageLabel');
 const menu=document.getElementById('menu');
@@ -139,20 +129,20 @@ function init(){
 
   field=new THREE.Mesh(
     new THREE.BoxGeometry(6,0.2,10),
-    new THREE.MeshStandardMaterial({color:0x004488})
+    new THREE.MeshStandardMaterial()
   );
   field.position.y=-0.1;
   scene.add(field);
 
   puck=new THREE.Mesh(
     new THREE.CylinderGeometry(0.25,0.25,0.1,32),
-    new THREE.MeshStandardMaterial({color:0xffffff})
+    new THREE.MeshStandardMaterial()
   );
   scene.add(puck);
 
   player=new THREE.Mesh(
     new THREE.CylinderGeometry(0.4,0.4,0.2,32),
-    new THREE.MeshStandardMaterial({color:0xff0000})
+    new THREE.MeshStandardMaterial()
   );
   scene.add(player);
 
@@ -162,7 +152,8 @@ function init(){
   );
   scene.add(cpu);
 
-  // ★★★ POINTER EVENTS（これが本命）★★★
+  applyColorSettings();
+
   renderer.domElement.addEventListener('pointerdown',e=>{
     renderer.domElement.setPointerCapture(e.pointerId);
   });
@@ -206,35 +197,31 @@ function startStage(){
   player.position.set(0,0,4);
   cpu.position.set(0,0,-4);
   resetPuck();
+  applyColorSettings();
   gameActive=true;
 }
 
 function resetPuck(){
   puck.position.set(0,0,0);
-  const speed=getPuckSpeed();
-  puckVel.set(0,0,speed);
+  puckVel.set(0,0,0); // ★止まった状態から開始
 }
 
 function getPuckSpeed(){
-  if(stage<9) return 0.12 + stage*0.01;
-  return 0.45; // 裏ボスだけ異常
+  return stage<9 ? 0.12+stage*0.01 : 0.45;
 }
 
 function updatePhysics(){
-  puck.position.y=0;
-  puckVel.y=0;
   puck.position.add(puckVel);
 
   if(Math.abs(puck.position.x)>2.7) puckVel.x*=-1;
 
-  if(puck.position.z>5){ cpuScore++; afterGoal(); }
-  if(puck.position.z<-5){ playerScore++; afterGoal(); }
+  if(puck.position.z>5){cpuScore++;afterGoal();}
+  if(puck.position.z<-5){playerScore++;afterGoal();}
 
   const cpuSpeed=0.02+stage*0.004;
   cpu.position.x+=THREE.MathUtils.clamp(
     puck.position.x-cpu.position.x,
-    -cpuSpeed,
-    cpuSpeed
+    -cpuSpeed,cpuSpeed
   );
 
   hit(player);
@@ -253,8 +240,8 @@ function hit(m){
 
 function afterGoal(){
   updateUI();
-  if(playerScore>=3){ win(); return; }
-  if(cpuScore>=3){ lose(); return; }
+  if(playerScore>=3){win();return;}
+  if(cpuScore>=3){lose();return;}
   resetPuck();
 }
 
@@ -270,7 +257,7 @@ function win(){
     showMessage(
       'Congratulations！<br>こんなホッケーゲームやるから目が悪くなるんじゃ！',
       'メインメニューへ戻る',
-      ()=>{ stage=1; showMenu(); }
+      ()=>{stage=1;showMenu();}
     );
   }else{
     showMessage('ステージクリア','次のステージ',startStage);
@@ -280,22 +267,28 @@ function win(){
 function lose(){
   gameActive=false;
   showMessage('敗北…','メインメニューへ戻る',()=>{
-    stage=1;
-    showMenu();
+    stage=1;showMenu();
   });
 }
 
-function showMenu(){ hideAll(); menu.style.display='flex'; }
-function openSettings(){ hideAll(); settings.style.display='flex'; }
+function openSettings(){hideAll();settings.style.display='flex';}
+function showMenu(){hideAll();menu.style.display='flex';}
 
 function applySettings(){
-  player.material.color.set(document.getElementById('malletColor').value);
-  puck.material.color.set(document.getElementById('puckColor').value);
-  const f=document.getElementById('fieldColor').value;
-  field.material.color.set(
-    f==='white'?0xffffff:f==='black'?0x000000:0x004488
-  );
+  settingMalletColor=document.getElementById('malletColor').value;
+  settingPuckColor=document.getElementById('puckColor').value;
+  settingFieldColor=document.getElementById('fieldColor').value;
+  applyColorSettings();
   showMenu();
+}
+
+function applyColorSettings(){
+  player.material.color.set(settingMalletColor);
+  puck.material.color.set(settingPuckColor);
+  field.material.color.set(
+    settingFieldColor==='white'?0xffffff:
+    settingFieldColor==='black'?0x000000:0x004488
+  );
 }
 
 function hideAll(){
@@ -311,7 +304,7 @@ function showMessage(t,b,cb){
 
 function animate(){
   requestAnimationFrame(animate);
-  if(gameActive) updatePhysics();
+  if(gameActive)updatePhysics();
   renderer.render(scene,camera);
 }
 </script>
