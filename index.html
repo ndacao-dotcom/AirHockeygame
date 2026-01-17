@@ -205,23 +205,53 @@ function startAdventure(){
 }
 
 function startStage(){
+
+  gameActive = false;
+
+  // ===== ボス演出を最優先 =====
+  if(stage === 8){
+    showMessage(
+      'ラスボス出現！<br>パック・食ったる蔵',
+      '覚悟する',
+      ()=>{
+        hideAll();
+        initStageObjects();
+        gameActive = true;
+      }
+    );
+    return;
+  }
+
+  if(stage === 9){
+    showMessage(
+      '裏ボス出現…<br>やまだたろう',
+      '無理ゲー開始',
+      ()=>{
+        hideAll();
+        initStageObjects();
+        gameActive = true;
+      }
+    );
+    return;
+  }
+
+  // ===== 通常ステージ =====
   hideAll();
-  playerScore=cpuScore=0;
+  initStageObjects();
+  gameActive = true;
+}
+
+function initStageObjects(){
+  playerScore = 0;
+  cpuScore = 0;
   updateUI();
+
   player.position.set(0,0,4);
   cpu.position.set(0,0,-4);
-  resetPuck();
 
-  if(stage===8){
-    showMessage('ラスボス出現！<br>パック・食ったる蔵','覚悟する',()=>{gameActive=true;});
-    return;
-  }
-  if(stage===9){
-    showMessage('裏ボス出現…<br>やまだたろう','無理ゲー開始',()=>{gameActive=true;});
-    return;
-  }
-  gameActive=true;
+  resetPuck();
 }
+
 
 function resetPuck(){
   puck.position.set(0,0,0);
