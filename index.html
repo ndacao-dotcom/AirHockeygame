@@ -208,38 +208,40 @@ function startStage(){
 
   gameActive = false;
 
-  // ===== ボス演出を最優先 =====
+  // ===== ラスボス =====
   if(stage === 8){
     showMessage(
       'ラスボス出現！<br>パック・食ったる蔵',
-      'しばき回す',
+      '覚悟する',
       ()=>{
-        hideAll();
-        initStageObjects();
-        gameActive = true;
+        beginStageAfterBossMessage();
       }
     );
     return;
   }
 
+  // ===== 裏ボス =====
   if(stage === 9){
     showMessage(
       '裏ボス出現…<br>やまだたろう',
       '無理ゲー開始',
       ()=>{
-        hideAll();
-        initStageObjects();
-        gameActive = true;
+        beginStageAfterBossMessage();
       }
     );
     return;
   }
 
-  // ===== 通常ステージ =====
-  hideAll();
-  initStageObjects();
-  gameActive = true;
+  // ===== 通常 =====
+  beginStageAfterBossMessage();
 }
+
+function beginStageAfterBossMessage(){
+  hideAll();              // UIを完全に閉じる
+  initStageObjects();     // ステージ初期化
+  gameActive = true;      // ★ 最後に有効化
+}
+
 
 function initStageObjects(){
   playerScore = 0;
