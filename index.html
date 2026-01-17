@@ -174,15 +174,20 @@ function init(){
   });
 }
 
-function movePlayer(cx,cy){
-  const x=(cx/innerWidth-0.5)*6;
-  const z=(cy/innerHeight)*5;
+function movePlayer(cx, cy){
+  const x = (cx / innerWidth - 0.5) * 6;
+
+  // ★ スマホ操作用の手前補正
+  const zRaw = cy / innerHeight;
+  const z = (zRaw * 4.2) - 0.3; // ← ここが重要
+
   player.position.set(
-    THREE.MathUtils.clamp(x,-2.7,2.7),
+    THREE.MathUtils.clamp(x, -2.7, 2.7),
     0,
-    THREE.MathUtils.clamp(z,0,4.5)
+    THREE.MathUtils.clamp(z, 0.2, 4.3)
   );
 }
+
 
 function startAdventure(){
   stage=1;
