@@ -95,6 +95,13 @@ let stage=1,MAX_STAGE=9;
 let playerScore=0,cpuScore=0;
 let gameActive=false;
 
+// ===== 必殺シュート =====
+let charging = false;
+let chargePower = 0;
+const MAX_CHARGE = 1.2;      // 秒
+const MAX_CHARGE_MULT = 2.5;
+
+
 /* ===== UI ===== */
 const scoreEl=document.getElementById('score');
 const stageEl=document.getElementById('stageLabel');
@@ -163,6 +170,17 @@ function init(){
   renderer.domElement.addEventListener('mousemove',e=>{
     if(gameActive) movePlayerByScreen(e.clientX,e.clientY);
   });
+
+  renderer.domElement.addEventListener('mousedown', ()=>{
+  if(!gameActive) return;
+  charging = true;
+  chargePower = 0;
+});
+
+renderer.domElement.addEventListener('mouseup', ()=>{
+  charging = false;
+});
+
 
   renderer.domElement.addEventListener('touchstart',e=>{
     if(!gameActive) return;
@@ -295,18 +313,28 @@ function updatePhysics(){
 }
 
 function hit(m){
-  const d=puck.position.distanceTo(m.position);
-  if(d<0.6){
-    const dir=puck.position.clone().sub(m.position).normalize();
-    const s=getPuckSpeed();
-    puckVel.x=dir.x*s;
-    puckVel.z=dir.z*s;
+  const d = puck.position.distanceTo(m.position);
+  if(d < 0.6){
+    const dir = puck.position.clone().sub(m.position).normalize();
 
-    hitSound.currentTime=0;
+    let speed = getPuckSpeed();
+
+    // ★ 必殺シュート判定（プレイヤーのみ）
+    if(m === player && chargePower > 0){
+      const rate = chargePower / MAX_CHARGE;
+      speed *= 1 + rate * (MAX_CHARGE_MULT - 1);
+      chargePower = 0;
+    }
+
+    puckVel.x = dir.x * speed;
+    puckVel.z = dir.z * speed;
+
+    hitSound.currentTime = 0;
     hitSound.play();
-    if(navigator.vibrate) navigator.vibrate(15);
+    if(navigator.vibrate) navigator.vibrate(20);
   }
 }
+
 
 function afterGoal(){
   goalSound.currentTime=0;
@@ -369,6 +397,13 @@ function showMessage(text,btn,cb){
 
 function animate(){
   requestAnimationFrame(animate);
+  if(gameActive && charging){
+    chargePower += 0.016;
+    if(chargePower > MAX_CHARGE){
+      chargePower = MAX_CHARGE;
+    }
+  }
+
   if(gameActive) updatePhysics();
   renderer.render(scene,camera);
 }
