@@ -102,10 +102,16 @@ const menu=document.getElementById('menu');
 const settings=document.getElementById('settings');
 const message=document.getElementById('message');
 
-/* ===== 操作用 ===== */
+/* ===== 操作 ===== */
 const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
 const playPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+
+/* ===== サウンド ===== */
+const hitSound=new Audio('hit.mp3');
+const goalSound=new Audio('goal.mp3');
+hitSound.volume=0.6;
+goalSound.volume=0.7;
 
 /* ===== 初期化 ===== */
 init();
@@ -205,12 +211,21 @@ function startStage(){
   player.position.set(0,0,4);
   cpu.position.set(0,0,-4);
   resetPuck();
+
+  if(stage===8){
+    showMessage('ラスボス出現！<br>パック・食ったる蔵','覚悟する',()=>{gameActive=true;});
+    return;
+  }
+  if(stage===9){
+    showMessage('裏ボス出現…<br>やまだたろう','無理ゲー開始',()=>{gameActive=true;});
+    return;
+  }
   gameActive=true;
 }
 
 function resetPuck(){
   puck.position.set(0,0,0);
-  puckVel.set(0,0,0); // ★ 静止スタート
+  puckVel.set(0,0,0);
 }
 
 function getPuckSpeed(){
@@ -226,9 +241,20 @@ function updatePhysics(){
   if(puck.position.z>5){cpuScore++;afterGoal();}
   if(puck.position.z<-5){playerScore++;afterGoal();}
 
-  const cpuSpeed=0.015+stage*0.003;
+  /* CPU個性 */
+  let cpuSpeed,targetX=puck.position.x;
+  if(stage<=7){
+    cpuSpeed=0.015+stage*0.003;
+  }else if(stage===8){
+    cpuSpeed=0.035;
+    targetX+=puckVel.x*10;
+  }else{
+    cpuSpeed=0.08;
+    targetX+=puckVel.x*25;
+  }
+
   cpu.position.x+=THREE.MathUtils.clamp(
-    puck.position.x-cpu.position.x,
+    targetX-cpu.position.x,
     -cpuSpeed,cpuSpeed
   );
 
@@ -243,10 +269,17 @@ function hit(m){
     const s=getPuckSpeed();
     puckVel.x=dir.x*s;
     puckVel.z=dir.z*s;
+
+    hitSound.currentTime=0;
+    hitSound.play();
+    if(navigator.vibrate) navigator.vibrate(15);
   }
 }
 
 function afterGoal(){
+  goalSound.currentTime=0;
+  goalSound.play();
+
   updateUI();
   if(playerScore>=3) win();
   else if(cpuScore>=3) lose();
