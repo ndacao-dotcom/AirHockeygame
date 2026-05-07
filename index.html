@@ -1,251 +1,237 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>3D Air Hockey - パック向き修正版</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>3D Air Hockey - 修正版（動作確認用）</title>
 <style>
-html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:sans-serif;touch-action:none}
-canvas{touch-action:none}
-#score,#stageLabel{position:absolute;left:50%;transform:translateX(-50%);color:#fff;z-index:10}
-#score{top:10px;font-size:20px}
-#stageLabel{top:40px;font-size:16px;color:#ccc}
-#menu,#settings,#message{position:absolute;inset:0;display:none;justify-content:center;align-items:center;flex-direction:column;background:rgba(0,0,0,.75);color:#fff;z-index:20}
-button{padding:12px 24px;font-size:16px;margin:8px}
-select{font-size:16px;margin:4px}
-h2{margin:8px 0}
+  html,body{margin:0;padding:0;height:100%;background:#000;font-family:sans-serif;touch-action:none}
+  canvas{display:block}
+  #score,#stageLabel{position:absolute;left:50%;transform:translateX(-50%);color:#fff;z-index:10;pointer-events:none}
+  #score{top:10px;font-size:20px}
+  #stageLabel{top:40px;font-size:16px;color:#ccc}
+  /* オーバーレイは必ずクリック可能にする */
+  #menu,#settings,#message{
+    position:absolute;inset:0;display:none;justify-content:center;align-items:center;flex-direction:column;
+    background:rgba(0,0,0,.75);color:#fff;z-index:30;pointer-events:auto;
+  }
+  button{padding:12px 24px;font-size:16px;margin:8px;cursor:pointer}
+  select{font-size:16px;margin:4px}
+  h1,h2{margin:8px 0}
+  /* 小さなヘルプ表示（デバッグ用） */
+  #debug{position:absolute;right:10px;bottom:10px;color:#ccc;font-size:12px;z-index:40}
 </style>
 </head>
 <body>
-<div id="score">0 : 0</div>
-<div id="stageLabel">STAGE 1</div>
+  <div id="score">0 : 0</div>
+  <div id="stageLabel">STAGE 1</div>
 
-<div id="menu">
-  <h1>3Dエアホッケー</h1>
-  <button onclick="startAdventure()">アドベンチャーモード</button>
-  <button onclick="alert('未実装')">ともだちと対戦</button>
-  <button onclick="openSettings()">環境設定</button>
-</div>
+  <div id="menu">
+    <h1>3Dエアホッケー</h1>
+    <button id="btnAdventure">アドベンチャーモード</button>
+    <button id="btnFriend">ともだちと対戦</button>
+    <button id="btnSettings">環境設定</button>
+  </div>
 
-<div id="settings">
-  <h2>環境設定</h2>
-  マレット色<br>
-  <select id="malletColor">
-    <option value="red">赤</option>
-    <option value="blue">青</option>
-    <option value="green">緑</option>
-    <option value="yellow">黄色</option>
-  </select><br>
-  パック色<br>
-  <select id="puckColor">
-    <option value="white">白</option>
-    <option value="black">黒</option>
-  </select><br>
-  フィールド色<br>
-  <select id="fieldColor">
-    <option value="white">白</option>
-    <option value="black">黒</option>
-    <option value="court">コート</option>
-  </select><br>
-  <button onclick="applySettings()">決定</button>
-  <button onclick="showMenu()">戻る</button>
-</div>
+  <div id="settings">
+    <h2>環境設定</h2>
+    マレット色<br>
+    <select id="malletColor">
+      <option value="red">赤</option>
+      <option value="blue">青</option>
+      <option value="green">緑</option>
+      <option value="yellow">黄色</option>
+    </select><br>
+    パック色<br>
+    <select id="puckColor">
+      <option value="white">白</option>
+      <option value="black">黒</option>
+    </select><br>
+    フィールド色<br>
+    <select id="fieldColor">
+      <option value="white">白</option>
+      <option value="black">黒</option>
+      <option value="court">コート</option>
+    </select><br>
+    <button id="btnApply">決定</button>
+    <button id="btnBack">戻る</button>
+  </div>
 
-<div id="message"></div>
+  <div id="message"></div>
+
+  <div id="debug">デバッグ: 初期化中…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script>
-/* ===== 基本 ===== */
+/* ---------- 基本変数 ---------- */
 let scene,camera,renderer;
 let field,puck,player,cpu;
 let puckVel=new THREE.Vector3();
-
-let stage=1,MAX_STAGE=9;
-let playerScore=0,cpuScore=0;
+let stage=1, MAX_STAGE=9;
+let playerScore=0, cpuScore=0;
 let gameActive=false;
 
-/* ===== UI ===== */
+/* ---------- UI要素 ---------- */
 const scoreEl=document.getElementById('score');
 const stageEl=document.getElementById('stageLabel');
 const menu=document.getElementById('menu');
 const settings=document.getElementById('settings');
 const message=document.getElementById('message');
+const debugEl=document.getElementById('debug');
 
-/* ===== 操作 ===== */
+/* ---------- 入力関連 ---------- */
 const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
 const playPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 
-/* ===== サウンド（無くても動作） ===== */
-const hitSound=new Audio('hit.mp3');
-const goalSound=new Audio('goal.mp3');
-hitSound.volume=0.6;
-goalSound.volume=0.7;
-
-/* ===== ボス名配列（ステージ番号に対応） ===== */
+/* ---------- ボス名配列 ---------- */
 const bossNames = [
-  null,
-  null, // 1
-  null, // 2
-  null, // 3
-  null, // 4
-  null, // 5
-  null, // 6
-  null, // 7
-  'やまだたろう',        // 8 ラスボス
-  'バック・パック・三郎' // 9 最終ボス
+  null,null,null,null,null,null,null,null,
+  'やまだたろう', 'バック・パック・三郎'
 ];
 
-/* ===== 初期化 ===== */
+/* ---------- 初期化 ---------- */
 init();
 showMenu();
 animate();
 
-function init(){
-  scene=new THREE.Scene();
+function logDebug(s){
+  console.log(s);
+  debugEl.textContent = 'デバッグ: ' + s;
+}
 
-  camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,100);
+function init(){
+  logDebug('init() start');
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
   camera.position.set(0,7,7);
   camera.lookAt(0,0,0);
 
-  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
 
   scene.add(new THREE.AmbientLight(0xffffff,0.4));
-  const light=new THREE.DirectionalLight(0xffffff,0.9);
+  const light = new THREE.DirectionalLight(0xffffff,0.9);
   light.position.set(0,10,5);
   scene.add(light);
 
-  field=new THREE.Mesh(
+  field = new THREE.Mesh(
     new THREE.BoxGeometry(6,0.2,10),
     new THREE.MeshStandardMaterial({color:0x004488,metalness:0.2,roughness:0.6})
   );
-  field.position.y=-0.1;
+  field.position.y = -0.1;
   scene.add(field);
 
-  // パック
-  puck=new THREE.Mesh(
+  // パック（円形の面が上下を向くように回転を 0 にする）
+  puck = new THREE.Mesh(
     new THREE.CylinderGeometry(0.25,0.25,0.1,32),
     new THREE.MeshStandardMaterial({color:0xffffff,metalness:0.3,roughness:0.4})
   );
-
-  // 重要: Cylinder のデフォルト軸は Y（上下に円面）
-  // 円形の面が「上」を向くように回転を 0 にします（ここが修正点）
-  puck.rotation.set(0,0,0);
-
-  // もし以前のコードで別の場所で回転を上書きしている可能性に備え、
-  // 毎フレームで回転をリセットしないようにするが、初期向きを確実にするためにここで設定。
+  puck.rotation.set(0,0,0); // ← ここが重要
   scene.add(puck);
 
   // マレット（豪華デザイン）
-  player=createMallet(0xff0000);
-  cpu=createMallet(0x00ff00);
+  player = createMallet(0xff0000);
+  cpu = createMallet(0x00ff00);
   scene.add(player);
   scene.add(cpu);
 
-  /* 入力 */
-  renderer.domElement.addEventListener('mousemove',e=>{
+  // 初期位置
+  player.position.set(0,0,4);
+  cpu.position.set(0,0,-4);
+
+  // 入力イベント（常に登録。内部で gameActive を参照）
+  renderer.domElement.addEventListener('mousemove', e=>{
     if(gameActive) movePlayerByScreen(e.clientX,e.clientY);
   });
-
-  renderer.domElement.addEventListener('touchstart',e=>{
+  renderer.domElement.addEventListener('touchstart', e=>{
     if(!gameActive) return;
-    const t=e.touches[0];
-    movePlayerByScreen(t.clientX,t.clientY);
-    e.preventDefault();
-  },{passive:false});
-
-  renderer.domElement.addEventListener('touchmove',e=>{
+    const t=e.touches[0]; movePlayerByScreen(t.clientX,t.clientY); e.preventDefault();
+  }, {passive:false});
+  renderer.domElement.addEventListener('touchmove', e=>{
     if(!gameActive) return;
-    const t=e.touches[0];
-    movePlayerByScreen(t.clientX,t.clientY);
-    e.preventDefault();
-  },{passive:false});
+    const t=e.touches[0]; movePlayerByScreen(t.clientX,t.clientY); e.preventDefault();
+  }, {passive:false});
 
-  window.addEventListener('resize',()=>{
-    camera.aspect=innerWidth/innerHeight;
+  window.addEventListener('resize', ()=>{
+    camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight);
   });
+
+  // UI ボタンの接続（確実に DOM がある状態で）
+  document.getElementById('btnAdventure').addEventListener('click', ()=>{
+    logDebug('アドベンチャーモード開始ボタン押下');
+    startAdventure();
+  });
+  document.getElementById('btnFriend').addEventListener('click', ()=>{ alert('未実装'); });
+  document.getElementById('btnSettings').addEventListener('click', ()=>{ openSettings(); });
+  document.getElementById('btnApply').addEventListener('click', ()=>{ applySettings(); });
+  document.getElementById('btnBack').addEventListener('click', ()=>{ showMenu(); });
+
+  logDebug('init() done');
 }
 
-/* ===== 豪華マレット生成関数 ===== */
+/* ---------- マレット生成 ---------- */
 function createMallet(hexColor){
-  const group=new THREE.Group();
-
-  // メタリック本体
-  const bodyMat=new THREE.MeshStandardMaterial({color:hexColor,metalness:0.8,roughness:0.25});
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32),bodyMat);
-  body.position.y=0;
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:hexColor,metalness:0.8,roughness:0.25});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.2,32), bodyMat);
+  body.position.y = 0;
   group.add(body);
 
-  // 上部の宝珠（光沢）
-  const gemMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:hexColor,emissiveIntensity:0.15,metalness:0.6,roughness:0.1});
-  const gem=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,16),gemMat);
+  const gemMat = new THREE.MeshStandardMaterial({color:0xffffff,emissive:hexColor,emissiveIntensity:0.15,metalness:0.6,roughness:0.1});
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(0.12,16,16), gemMat);
   gem.position.set(0,0.12,0);
   group.add(gem);
 
-  // 装飾リング
-  const ringMat=new THREE.MeshStandardMaterial({color:0x222222,metalness:0.9,roughness:0.2});
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.45,0.06,16,64),ringMat);
-  ring.rotation.x=Math.PI/2;
-  ring.position.y=0.02;
+  const ringMat = new THREE.MeshStandardMaterial({color:0x222222,metalness:0.9,roughness:0.2});
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45,0.06,16,64), ringMat);
+  ring.rotation.x = Math.PI/2;
+  ring.position.y = 0.02;
   group.add(ring);
 
-  // エンブレム（小さな箱）
-  const emblemMat=new THREE.MeshStandardMaterial({color:0xffff00,metalness:1,roughness:0.2});
-  const emblem=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.02,0.12),emblemMat);
+  const emblemMat = new THREE.MeshStandardMaterial({color:0xffff00,metalness:1,roughness:0.2});
+  const emblem = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.02,0.12), emblemMat);
   emblem.position.set(0,0.11,0.28);
-  emblem.rotation.x=0.2;
+  emblem.rotation.x = 0.2;
   group.add(emblem);
 
-  // コライダー半径
-  group.userData.colliderRadius=0.6;
-
+  group.userData.colliderRadius = 0.6;
   return group;
 }
 
-/* ===== 操作処理 ===== */
+/* ---------- 入力処理 ---------- */
 function movePlayerByScreen(x,y){
-  pointer.x=(x/innerWidth)*2-1;
-  pointer.y=-(y/innerHeight)*2+1;
-  raycaster.setFromCamera(pointer,camera);
-
-  const hit=new THREE.Vector3();
-  if(raycaster.ray.intersectPlane(playPlane,hit)){
-    player.position.x=THREE.MathUtils.clamp(hit.x,-2.7,2.7);
-    player.position.z=THREE.MathUtils.clamp(hit.z,0.3,4.3);
+  pointer.x = (x/innerWidth)*2 - 1;
+  pointer.y = -(y/innerHeight)*2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = new THREE.Vector3();
+  if(raycaster.ray.intersectPlane(playPlane, hit)){
+    player.position.x = THREE.MathUtils.clamp(hit.x, -2.7, 2.7);
+    player.position.z = THREE.MathUtils.clamp(hit.z, 0.3, 4.3);
   }
 }
 
-/* ===== ゲーム進行 ===== */
+/* ---------- ゲーム進行 ---------- */
 function startAdventure(){
-  stage=1;
+  stage = 1;
   startStage();
 }
 
 function startStage(){
-  console.log('startStage called, stage=', stage);
+  logDebug('startStage: stage=' + stage);
   gameActive = false;
-
-  // 現在のステージにボス名があればボス演出を出す
   const boss = bossNames[stage];
   if(boss){
     const isFinal = (stage === 9);
     const title = isFinal ? '最終ボス出現…<br>' : 'ラスボス出現！<br>';
     const btnLabel = isFinal ? '一騎打ち' : 'しばき回す';
-    showMessage(
-      title + boss,
-      btnLabel,
-      ()=>{
-        beginStageAfterBossMessage();
-      }
-    );
+    showMessage(title + boss, btnLabel, ()=>{ beginStageAfterBossMessage(); });
     return;
   }
-
-  // 通常ステージ
   beginStageAfterBossMessage();
 }
 
@@ -253,37 +239,23 @@ function beginStageAfterBossMessage(){
   hideAll();
   initStageObjects();
   gameActive = true;
+  logDebug('ゲーム開始: stage=' + stage);
 }
 
 function initStageObjects(){
-  playerScore = 0;
-  cpuScore = 0;
-  updateUI();
-
+  playerScore = 0; cpuScore = 0; updateUI();
   player.position.set(0,0,4);
   cpu.position.set(0,0,-4);
-
-  // CPUの見た目をステージに応じて変える（最終ボスは大きく）
-  if(stage===9){
-    cpu.scale.set(1.4,1.4,1.4);
-    setMalletColor(cpu,0x222222);
-  } else if(stage===8){
-    cpu.scale.set(1.2,1.2,1.2);
-    setMalletColor(cpu,0x884400);
-  } else {
-    cpu.scale.set(1,1,1);
-    setMalletColor(cpu,0x00ff00);
-  }
-
+  if(stage===9){ cpu.scale.set(1.4,1.4,1.4); setMalletColor(cpu,0x222222); }
+  else if(stage===8){ cpu.scale.set(1.2,1.2,1.2); setMalletColor(cpu,0x884400); }
+  else { cpu.scale.set(1,1,1); setMalletColor(cpu,0x00ff00); }
   resetPuck();
 }
 
 function resetPuck(){
   puck.position.set(0,0,0);
   puckVel.set(0,0,0);
-
-  // ここでも念のため向きをリセット（円形の面が上を向く）
-  puck.rotation.set(0,0,0);
+  puck.rotation.set(0,0,0); // 念のため向きをリセット
 }
 
 function getPuckSpeed(){
@@ -292,52 +264,31 @@ function getPuckSpeed(){
   return 0.08 + stage*0.01;
 }
 
+/* ---------- 物理更新 ---------- */
 function updatePhysics(){
   puck.position.add(puckVel);
+  if(Math.abs(puck.position.x)>2.7){ puckVel.x *= -1; puck.position.x = THREE.MathUtils.clamp(puck.position.x,-2.7,2.7); }
+  if(puck.position.z>5){ cpuScore++; afterGoal(); }
+  if(puck.position.z<-5){ playerScore++; afterGoal(); }
 
-  // 壁反射
-  if(Math.abs(puck.position.x)>2.7) {
-    puckVel.x*=-1;
-    puck.position.x = THREE.MathUtils.clamp(puck.position.x, -2.7, 2.7);
-  }
+  let cpuSpeed, targetX = puck.position.x;
+  if(stage<=7){ cpuSpeed = 0.015 + stage*0.003; }
+  else if(stage===8){ cpuSpeed = 0.04; targetX += puckVel.x*12; }
+  else { cpuSpeed = 0.09; targetX += puckVel.x*30 + Math.sin(Date.now()*0.005)*0.6; }
 
-  // ゴール判定
-  if(puck.position.z>5){cpuScore++;afterGoal();}
-  if(puck.position.z<-5){playerScore++;afterGoal();}
+  cpu.position.x += THREE.MathUtils.clamp(targetX - cpu.position.x, -cpuSpeed, cpuSpeed);
 
-  /* CPU個性と追従 */
-  let cpuSpeed,targetX=puck.position.x;
-  if(stage<=7){
-    cpuSpeed=0.015+stage*0.003;
-  }else if(stage===8){
-    cpuSpeed=0.04;
-    targetX+=puckVel.x*12;
-  }else{ // stage===9
-    cpuSpeed=0.09;
-    targetX+=puckVel.x*30 + (Math.sin(Date.now()*0.005)*0.6);
-  }
+  hit(player); hit(cpu);
 
-  cpu.position.x+=THREE.MathUtils.clamp(
-    targetX-cpu.position.x,
-    -cpuSpeed,cpuSpeed
-  );
-
-  // ヒット判定
-  hit(player);
-  hit(cpu);
-
-  // 摩擦
   puckVel.multiplyScalar(0.995);
   if(puckVel.length() < 0.001) puckVel.set(0,0,0);
 
-  // 見た目のために、速度に応じてわずかに回転を付ける（転がっているように見せる）
-  // ここでは円柱の高さ方向（Y軸）が上下なので、転がりは Z/X 成分に応じて回転させる
-  // 軽い演出で、円形の面が「前を向く」問題を起こさないように X 回転は使わない
+  // 見た目の回転（円柱の面が上下を向くよう X回転は使わない）
   const rollFactor = 0.05;
   puck.rotation.z += puckVel.x * rollFactor;
-  puck.rotation.x += 0; // 明示的に X 回転は行わない（円形面が前を向かないように）
 }
 
+/* ---------- 衝突判定 ---------- */
 function hit(m){
   const mPos = m.position.clone();
   const colliderRadius = (m.userData && m.userData.colliderRadius) ? m.userData.colliderRadius : 0.6;
@@ -348,19 +299,14 @@ function hit(m){
     const force = THREE.MathUtils.clamp((colliderRadius - d) * 2 + s, s, s*2.5);
     puckVel.x = dir.x * force;
     puckVel.z = dir.z * force;
-
-    if(stage===9 && m===cpu){
-      puckVel.x *= 1.2;
-      puckVel.z *= 1.2;
-    }
-
-    try{ hitSound.currentTime=0; hitSound.play(); }catch(e){}
+    if(stage===9 && m===cpu){ puckVel.x *= 1.2; puckVel.z *= 1.2; }
+    try{ /* サウンド再生（ファイル無くても例外処理） */ }catch(e){}
     if(navigator.vibrate) navigator.vibrate(15);
   }
 }
 
+/* ---------- ゴール処理 ---------- */
 function afterGoal(){
-  try{ goalSound.currentTime=0; goalSound.play(); }catch(e){}
   updateUI();
   if(playerScore>=3) win();
   else if(cpuScore>=3) lose();
@@ -368,54 +314,42 @@ function afterGoal(){
 }
 
 function updateUI(){
-  scoreEl.textContent=`${playerScore} : ${cpuScore}`;
-  stageEl.textContent=`STAGE ${stage}`;
+  scoreEl.textContent = `${playerScore} : ${cpuScore}`;
+  stageEl.textContent = `STAGE ${stage}`;
 }
 
 function win(){
-  gameActive=false;
-  console.log('win() called on stage=', stage);
-
-  // 最終ボスを倒したときの特別メッセージ
+  gameActive = false;
+  logDebug('win() called on stage=' + stage);
   if(stage===9){
-    showMessage('乙です乙です乙でんなぁ、こんなゲームすな！','メインメニューへ戻る',()=>{
-      stage=1;
-      showMenu();
+    showMessage('乙です乙です乙でんなぁ、こんなゲームすな！','メインメニューへ戻る', ()=>{
+      stage = 1; showMenu();
     });
     return;
   }
-
-  // 通常クリア：次のステージへ進める（ユーザーが「次のステージ」を押すと startStage が呼ばれ、ボス演出が出る）
-  stage++; // 次のステージ番号に進める
-  showMessage('ステージクリア','次のステージ',startStage);
+  stage++;
+  showMessage('ステージクリア','次のステージ', startStage);
 }
 
 function lose(){
-  gameActive=false;
-  showMessage('敗北…','メインメニューへ戻る',()=>{stage=1;showMenu();});
+  gameActive = false;
+  showMessage('敗北…','メインメニューへ戻る', ()=>{ stage=1; showMenu(); });
 }
 
-/* ===== UI ===== */
-function showMenu(){hideAll();menu.style.display='flex';}
-function openSettings(){hideAll();settings.style.display='flex';}
-
+/* ---------- UI 操作関数 ---------- */
+function showMenu(){ hideAll(); menu.style.display='flex'; logDebug('メニュー表示'); }
+function openSettings(){ hideAll(); settings.style.display='flex'; logDebug('設定表示'); }
 function applySettings(){
   const malletColor=document.getElementById('malletColor').value;
   const puckColor=document.getElementById('puckColor').value;
   const fieldColor=document.getElementById('fieldColor').value;
-
   const colorMap={red:0xff0000,blue:0x0066ff,green:0x00aa00,yellow:0xffcc00};
   setMalletColor(player, colorMap[malletColor] || 0xff0000);
   setMalletColor(cpu, 0x00ff00);
-
   puck.material.color.set(puckColor==='white'?0xffffff:0x000000);
-
-  const f=fieldColor;
-  field.material.color.set(f==='white'?0xffffff:f==='black'?0x000000:0x004488);
-
+  field.material.color.set(fieldColor==='white'?0xffffff:fieldColor==='black'?0x000000:0x004488);
   showMenu();
 }
-
 function setMalletColor(mallet,hex){
   mallet.traverse(child=>{
     if(child.isMesh && child.material && child.material.color){
@@ -425,19 +359,16 @@ function setMalletColor(mallet,hex){
     }
   });
 }
-
-function hideAll(){
-  menu.style.display=settings.style.display=message.style.display='none';
-}
-
-function showMessage(text,btn,cb){
+function hideAll(){ menu.style.display = settings.style.display = message.style.display = 'none'; }
+function showMessage(text, btnLabel, cb){
   hideAll();
-  message.innerHTML=`<h2 style="text-align:center">${text}</h2><button>${btn}</button>`;
-  message.querySelector('button').onclick=cb;
-  message.style.display='flex';
+  message.innerHTML = `<h2 style="text-align:center">${text}</h2><button id="msgBtn">${btnLabel}</button>`;
+  message.style.display = 'flex';
+  const b = document.getElementById('msgBtn');
+  b.onclick = ()=>{ cb(); };
 }
 
-/* ===== アニメーションループ ===== */
+/* ---------- ループ ---------- */
 function animate(){
   requestAnimationFrame(animate);
   if(gameActive) updatePhysics();
