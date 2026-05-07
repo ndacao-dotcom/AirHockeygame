@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>3D Air Hockey - 改良版</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>3D Air Hockey - 改良版（ボス順序修正済み）</title>
 <style>
 html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:sans-serif;touch-action:none}
 canvas{touch-action:none}
@@ -13,6 +13,7 @@ canvas{touch-action:none}
 #menu,#settings,#message{position:absolute;inset:0;display:none;justify-content:center;align-items:center;flex-direction:column;background:rgba(0,0,0,.75);color:#fff;z-index:20}
 button{padding:12px 24px;font-size:16px;margin:8px}
 select{font-size:16px;margin:4px}
+h2{margin:8px 0}
 </style>
 </head>
 <body>
@@ -75,11 +76,25 @@ const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
 const playPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 
-/* ===== サウンド（ファイルが無ければ無視されます） ===== */
+/* ===== サウンド（無くても動作） ===== */
 const hitSound=new Audio('hit.mp3');
 const goalSound=new Audio('goal.mp3');
 hitSound.volume=0.6;
 goalSound.volume=0.7;
+
+/* ===== ボス名配列（ステージ番号に対応） ===== */
+const bossNames = [
+  null,
+  null, // 1
+  null, // 2
+  null, // 3
+  null, // 4
+  null, // 5
+  null, // 6
+  null, // 7
+  'やまだたろう',        // 8 ラスボス
+  'バック・パック・三郎' // 9 最終ボス
+];
 
 /* ===== 初期化 ===== */
 init();
@@ -117,7 +132,7 @@ function init(){
   puck.rotation.x=Math.PI/2;
   scene.add(puck);
 
-  // プレイヤーとCPUのマレット（豪華デザイン）
+  // マレット（豪華デザイン）
   player=createMallet(0xff0000);
   cpu=createMallet(0x00ff00);
   scene.add(player);
@@ -179,7 +194,7 @@ function createMallet(hexColor){
   emblem.rotation.x=0.2;
   group.add(emblem);
 
-  // 影響判定用の見えないコライダー（位置合わせ）
+  // コライダー半径
   group.userData.colliderRadius=0.6;
 
   return group;
@@ -205,13 +220,18 @@ function startAdventure(){
 }
 
 function startStage(){
+  console.log('startStage called, stage=', stage);
   gameActive = false;
 
-  // ステージ8: ラスボス「パック・食ったる蔵」
-  if(stage === 8){
+  // 現在のステージにボス名があればボス演出を出す
+  const boss = bossNames[stage];
+  if(boss){
+    const isFinal = (stage === 9);
+    const title = isFinal ? '最終ボス出現…<br>' : 'ラスボス出現！<br>';
+    const btnLabel = isFinal ? '一騎打ち' : 'しばき回す';
     showMessage(
-      'ラスボス出現！<br>パック・食ったる蔵',
-      'しばき回す',
+      title + boss,
+      btnLabel,
       ()=>{
         beginStageAfterBossMessage();
       }
@@ -219,19 +239,7 @@ function startStage(){
     return;
   }
 
-  // ステージ9: 最終ボス「バック・パック・三郎」
-  if(stage === 9){
-    showMessage(
-      '最終ボス出現…<br>バック・パック・三郎',
-      '一騎打ち',
-      ()=>{
-        beginStageAfterBossMessage();
-      }
-    );
-    return;
-  }
-
-  // 通常
+  // 通常ステージ
   beginStageAfterBossMessage();
 }
 
@@ -252,7 +260,6 @@ function initStageObjects(){
   // CPUの見た目をステージに応じて変える（最終ボスは大きく）
   if(stage===9){
     cpu.scale.set(1.4,1.4,1.4);
-    // CPUマレット色を黒っぽくして威圧感
     setMalletColor(cpu,0x222222);
   } else if(stage===8){
     cpu.scale.set(1.2,1.2,1.2);
@@ -271,8 +278,8 @@ function resetPuck(){
 }
 
 function getPuckSpeed(){
-  if(stage===9) return 0.55; // 最終ボスは速い
-  if(stage===8) return 0.35; // ラスボスはやや速い
+  if(stage===9) return 0.55;
+  if(stage===8) return 0.35;
   return 0.08 + stage*0.01;
 }
 
@@ -285,7 +292,7 @@ function updatePhysics(){
     puck.position.x = THREE.MathUtils.clamp(puck.position.x, -2.7, 2.7);
   }
 
-  // ゴール判定（フィールド端）
+  // ゴール判定
   if(puck.position.z>5){cpuScore++;afterGoal();}
   if(puck.position.z<-5){playerScore++;afterGoal();}
 
@@ -295,11 +302,9 @@ function updatePhysics(){
     cpuSpeed=0.015+stage*0.003;
   }else if(stage===8){
     cpuSpeed=0.04;
-    // ラスボスは少し先読み
     targetX+=puckVel.x*12;
-  }else{ // stage===9 最終ボス
+  }else{ // stage===9
     cpuSpeed=0.09;
-    // 最終ボスは高度な先読みとランダムな揺さぶり
     targetX+=puckVel.x*30 + (Math.sin(Date.now()*0.005)*0.6);
   }
 
@@ -308,35 +313,31 @@ function updatePhysics(){
     -cpuSpeed,cpuSpeed
   );
 
-  // ヒット判定（プレイヤー・CPU）
+  // ヒット判定
   hit(player);
   hit(cpu);
 
-  // パックが止まっているときは少しずつ減速（摩擦）
+  // 摩擦
   puckVel.multiplyScalar(0.995);
   if(puckVel.length() < 0.001) puckVel.set(0,0,0);
 }
 
 function hit(m){
-  // m は Group（マレット）か Mesh（旧コード互換）
   const mPos = m.position.clone();
   const colliderRadius = (m.userData && m.userData.colliderRadius) ? m.userData.colliderRadius : 0.6;
   const d = puck.position.distanceTo(mPos);
   if(d < colliderRadius){
     const dir = puck.position.clone().sub(mPos).normalize();
     const s = getPuckSpeed();
-    // ヒットの強さは距離に応じて少し変える
     const force = THREE.MathUtils.clamp((colliderRadius - d) * 2 + s, s, s*2.5);
     puckVel.x = dir.x * force;
     puckVel.z = dir.z * force;
 
-    // ボス特有の反撃（最終ボスは強めのノックバック）
     if(stage===9 && m===cpu){
       puckVel.x *= 1.2;
       puckVel.z *= 1.2;
     }
 
-    // サウンドと振動
     try{ hitSound.currentTime=0; hitSound.play(); }catch(e){}
     if(navigator.vibrate) navigator.vibrate(15);
   }
@@ -357,24 +358,20 @@ function updateUI(){
 
 function win(){
   gameActive=false;
+  console.log('win() called on stage=', stage);
+
   // 最終ボスを倒したときの特別メッセージ
   if(stage===9){
     showMessage('乙です乙です乙でんなぁ、こんなゲームすな！','メインメニューへ戻る',()=>{
-      stage=1; showMenu();
+      stage=1;
+      showMenu();
     });
     return;
   }
 
-  stage++;
-  if(stage>MAX_STAGE){
-    showMessage(
-      'Congratulations！<br>こんなホッケーゲームやるから目が悪くなるんじゃ！',
-      'メインメニューへ戻る',
-      ()=>{stage=1;showMenu();}
-    );
-  }else{
-    showMessage('ステージクリア','次のステージ',startStage);
-  }
+  // 通常クリア：次のステージへ進める（ユーザーが「次のステージ」を押すと startStage が呼ばれ、ボス演出が出る）
+  stage++; // 次のステージ番号に進める
+  showMessage('ステージクリア','次のステージ',startStage);
 }
 
 function lose(){
@@ -391,16 +388,12 @@ function applySettings(){
   const puckColor=document.getElementById('puckColor').value;
   const fieldColor=document.getElementById('fieldColor').value;
 
-  // マレット色を更新（プレイヤーとCPUの本体色のみ）
   const colorMap={red:0xff0000,blue:0x0066ff,green:0x00aa00,yellow:0xffcc00};
   setMalletColor(player, colorMap[malletColor] || 0xff0000);
-  // CPUはステージにより上書きされるが初期は反映
   setMalletColor(cpu, 0x00ff00);
 
-  // パック色
   puck.material.color.set(puckColor==='white'?0xffffff:0x000000);
 
-  // フィールド色
   const f=fieldColor;
   field.material.color.set(f==='white'?0xffffff:f==='black'?0x000000:0x004488);
 
@@ -408,13 +401,10 @@ function applySettings(){
 }
 
 function setMalletColor(mallet,hex){
-  // Group 内の Mesh を走査して色をセット
   mallet.traverse(child=>{
     if(child.isMesh && child.material && child.material.color){
-      // エンブレムは黄色のままにしたいのでスキップ
       if(child.geometry && child.geometry.type==='BoxGeometry') return;
       child.material.color.set(hex);
-      // gem は emissive を合わせる
       if(child.material.emissive) child.material.emissive.set(hex);
     }
   });
